@@ -6374,24 +6374,41 @@ not_in_argv (NSString *arg)
 
   if ([theEvent type] == NSEventTypeScrollWheel)
     {
-      CGFloat delta = [theEvent deltaY];
-      /* Mac notebooks send wheel events w/delta =0 when trackpad scrolling */
-      if (delta == 0)
+#ifdef NS_IMPL_COCOA
+      if ([theEvent respondsToSelector: @selector(hasPreciseScrollingDeltas)]
+          && [theEvent hasPreciseScrollingDeltas])
         {
-          delta = [theEvent deltaX];
-          if (delta == 0)
-            {
-              NSTRACE_MSG ("deltaIsZero");
-              return;
-            }
-          emacs_event->kind = HORIZ_WHEEL_EVENT;
+          Lisp_Object dx, dy;
+          dx = make_float ([theEvent scrollingDeltaX]);
+          dy = make_float ([theEvent scrollingDeltaY]);
+
+          emacs_event->kind = TOUCH_SCROLL_EVENT;
+          emacs_event->arg = list2 (dx, dy);
         }
       else
-        emacs_event->kind = WHEEL_EVENT;
+        {
+#endif
+          CGFloat delta = [theEvent deltaY];
+          /* Mac notebooks send wheel events w/delta =0 when trackpad scrolling */
+          if (delta == 0)
+            {
+              delta = [theEvent deltaX];
+              if (delta == 0)
+                {
+                  NSTRACE_MSG ("deltaIsZero");
+                  return;
+                }
+              emacs_event->kind = HORIZ_WHEEL_EVENT;
+            }
+          else
+            emacs_event->kind = WHEEL_EVENT;
 
-      emacs_event->code = 0;
-      emacs_event->modifiers = EV_MODIFIERS (theEvent) |
-        ((delta > 0) ? up_modifier : down_modifier);
+          emacs_event->code = 0;
+          emacs_event->modifiers = EV_MODIFIERS (theEvent) |
+            ((delta > 0) ? up_modifier : down_modifier);
+#ifdef NS_IMPL_COCOA
+        }
+#endif
     }
   else
     {
@@ -6535,6 +6552,95 @@ not_in_argv (NSString *arg)
   NSTRACE ("[EmacsView otherMouseDragged:]");
   [self mouseMoved: e];
 }
+
+
+#ifdef NS_IMPL_COCOA
+/* GNUstep doesn't support touch gestures yet. */
+
+- (void)magnifyWithEvent: (NSEvent *) e
+{
+  struct ns_display_info *dpyinfo = FRAME_DISPLAY_INFO (emacsframe);
+  NSPoint p = [self convertPoint: [e locationInWindow] fromView: nil];
+  Lisp_Object delta;
+
+  NSTRACE ("[EmacsView magnifyWithEvent:]");
+
+  [self deleteWorkingText];
+
+  if (!emacs_event)
+    return;
+
+  dpyinfo->last_mouse_frame = emacsframe;
+
+  delta = make_float ([e magnification] * 25);
+
+  emacs_event->kind = TOUCH_PINCH_EVENT;
+  emacs_event->arg = delta;
+  emacs_event->modifiers = EV_MODIFIERS (e)
+    | EV_UDMODIFIERS (e);
+
+  XSETINT (emacs_event->x, lrint (p.x));
+  XSETINT (emacs_event->y, lrint (p.y));
+  EV_TRAILER (e);
+}
+
+
+- (void)swipeWithEvent: (NSEvent *) e
+{
+  struct ns_display_info *dpyinfo = FRAME_DISPLAY_INFO (emacsframe);
+  NSPoint p = [self convertPoint: [e locationInWindow] fromView: nil];
+  CGFloat dx = [e deltaX];
+  CGFloat dy = [e deltaY];
+
+  NSTRACE ("[EmacsView swipeWithEvent:]");
+
+  [self deleteWorkingText];
+
+  if (!emacs_event)
+    return;
+
+  dpyinfo->last_mouse_frame = emacsframe;
+
+  if (dx != 0)
+    emacs_event->kind = (dx > 0) ? TOUCH_SWIPE_LEFT_EVENT : TOUCH_SWIPE_RIGHT_EVENT;
+  else if (dy != 0)
+    emacs_event->kind = (dy > 0) ? TOUCH_SWIPE_UP_EVENT : TOUCH_SWIPE_DOWN_EVENT;
+  else
+    return; /* No swipe direction detected. */
+
+  emacs_event->modifiers = EV_MODIFIERS (e)
+    | EV_UDMODIFIERS (e);
+
+  XSETINT (emacs_event->x, lrint (p.x));
+  XSETINT (emacs_event->y, lrint (p.y));
+  EV_TRAILER (e);
+}
+
+
+- (void)rotateWithEvent: (NSEvent *) e
+{
+  struct ns_display_info *dpyinfo = FRAME_DISPLAY_INFO (emacsframe);
+  NSPoint p = [self convertPoint: [e locationInWindow] fromView: nil];
+
+  NSTRACE ("[EmacsView rotateWithEvent:]");
+
+  [self deleteWorkingText];
+
+  if (!emacs_event)
+    return;
+
+  dpyinfo->last_mouse_frame = emacsframe;
+
+  emacs_event->kind = TOUCH_ROTATE_EVENT;
+  emacs_event->arg = make_float([e rotation]);;
+  emacs_event->modifiers = EV_MODIFIERS (e)
+    | EV_UDMODIFIERS (e);
+
+  XSETINT (emacs_event->x, lrint (p.x));
+  XSETINT (emacs_event->y, lrint (p.y));
+  EV_TRAILER (e);
+}
+#endif /* NS_IMPL_COCOA */
 
 
 - (BOOL)windowShouldClose: (id)sender
