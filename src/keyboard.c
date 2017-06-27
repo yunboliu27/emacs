@@ -5110,8 +5110,8 @@ static const char *const lispy_wheel_names[] =
 
 static const char *const touch_names[] =
 {
-  "touch-scroll", "touch-pinch", "touch-rotate", "touch-swipe-up",
-  "touch-swipe-down", "touch-swipe-left", "touch-swipe-right"
+  "touch-scroll", "magnify-up", "magnify-down", "rotate-right", "rotate-left",
+  "swipe-up", "swipe-down", "swipe-left", "swipe-right"
 };
 
 /* drag-n-drop events are generated when a set of selected files are
@@ -6053,11 +6053,12 @@ make_lispy_event (struct input_event *event)
         return list3 (head, position, deltas);
       }
 
-    case TOUCH_PINCH_EVENT:
+    case TOUCH_GESTURE_EVENT:
       {
 	Lisp_Object position;
 	Lisp_Object head;
-        Lisp_Object delta = event->arg;
+        Lisp_Object arg = event->arg;
+        int symbol_num = event->code;
 	struct frame *f = XFRAME (event->frame_or_window);
 
 	/* Ignore touch events that were made on frame that have
@@ -6067,68 +6068,14 @@ make_lispy_event (struct input_event *event)
 
 	position = make_lispy_position (f, event->x, event->y,
 					event->timestamp);
-
-        head = modify_event_symbol (1, event->modifiers, Qtouch_gesture, Qnil,
-                                    touch_names, &touch_syms, ASIZE (touch_syms));
-
-        return list3 (head, position, delta);
-      }
-
-    case TOUCH_SWIPE_UP_EVENT:
-    case TOUCH_SWIPE_DOWN_EVENT:
-    case TOUCH_SWIPE_LEFT_EVENT:
-    case TOUCH_SWIPE_RIGHT_EVENT:
-      {
-	Lisp_Object position;
-	Lisp_Object head;
-	struct frame *f = XFRAME (event->frame_or_window);
-        int symbol_num;
-
-	/* Ignore touch events that were made on frame that have
-	   been deleted.  */
-	if (! FRAME_LIVE_P (f))
-	  return Qnil;
-
-	position = make_lispy_position (f, event->x, event->y,
-					event->timestamp);
-
-        switch (event->kind)
-          {
-          case TOUCH_SWIPE_UP_EVENT:
-            symbol_num = 3;
-          case TOUCH_SWIPE_DOWN_EVENT:
-            symbol_num = 4;
-          case TOUCH_SWIPE_LEFT_EVENT:
-            symbol_num = 5;
-          case TOUCH_SWIPE_RIGHT_EVENT:
-            symbol_num = 6;
-          }
 
         head = modify_event_symbol (symbol_num, event->modifiers, Qtouch_gesture, Qnil,
                                     touch_names, &touch_syms, ASIZE (touch_syms));
 
-        return list2 (head, position);
-      }
-
-    case TOUCH_ROTATE_EVENT:
-      {
-	Lisp_Object position;
-	Lisp_Object head;
-        Lisp_Object rotation = event->arg;
-	struct frame *f = XFRAME (event->frame_or_window);
-
-	/* Ignore touch events that were made on frame that have
-	   been deleted.  */
-	if (! FRAME_LIVE_P (f))
-	  return Qnil;
-
-	position = make_lispy_position (f, event->x, event->y,
-					event->timestamp);
-
-        head = modify_event_symbol (2, event->modifiers, Qtouch_gesture, Qnil,
-                                    touch_names, &touch_syms, ASIZE (touch_syms));
-
-        return list3 (head, position, rotation);
+        if (NILP(arg))
+          return list2 (head, position);
+        else
+          return list3 (head, position, arg);
       }
 
 #if defined (USE_X_TOOLKIT) || defined (HAVE_NTGUI) \

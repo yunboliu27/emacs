@@ -6561,7 +6561,6 @@ not_in_argv (NSString *arg)
 {
   struct ns_display_info *dpyinfo = FRAME_DISPLAY_INFO (emacsframe);
   NSPoint p = [self convertPoint: [e locationInWindow] fromView: nil];
-  Lisp_Object delta;
 
   NSTRACE ("[EmacsView magnifyWithEvent:]");
 
@@ -6572,10 +6571,10 @@ not_in_argv (NSString *arg)
 
   dpyinfo->last_mouse_frame = emacsframe;
 
-  delta = make_float ([e magnification] * 25);
-
-  emacs_event->kind = TOUCH_PINCH_EVENT;
-  emacs_event->arg = delta;
+  /* code 1 is 'magnify-up', code 2 is 'magnify-down'. */
+  emacs_event->code = ([e magnification] > 0) ? 1 : 2;
+  emacs_event->arg = make_float ([e magnification]);
+  emacs_event->kind = TOUCH_GESTURE_EVENT;
   emacs_event->modifiers = EV_MODIFIERS (e)
     | EV_UDMODIFIERS (e);
 
@@ -6602,12 +6601,14 @@ not_in_argv (NSString *arg)
   dpyinfo->last_mouse_frame = emacsframe;
 
   if (dx != 0)
-    emacs_event->kind = (dx > 0) ? TOUCH_SWIPE_LEFT_EVENT : TOUCH_SWIPE_RIGHT_EVENT;
+    emacs_event->code = (dx > 0) ? 7 : 8;
   else if (dy != 0)
-    emacs_event->kind = (dy > 0) ? TOUCH_SWIPE_UP_EVENT : TOUCH_SWIPE_DOWN_EVENT;
+    emacs_event->code = (dy > 0) ? 5 : 6;
   else
     return; /* No swipe direction detected. */
 
+  emacs_event->kind = TOUCH_GESTURE_EVENT;
+  emacs_event->arg = Qnil;
   emacs_event->modifiers = EV_MODIFIERS (e)
     | EV_UDMODIFIERS (e);
 
@@ -6631,7 +6632,10 @@ not_in_argv (NSString *arg)
 
   dpyinfo->last_mouse_frame = emacsframe;
 
-  emacs_event->kind = TOUCH_ROTATE_EVENT;
+  /* Code 3 is 'rotate-right', code 4 is 'rotate-left'. */
+  emacs_event->code = ([e rotation] < 0) ? 3 : 4;
+
+  emacs_event->kind = TOUCH_GESTURE_EVENT;
   emacs_event->arg = make_float([e rotation]);;
   emacs_event->modifiers = EV_MODIFIERS (e)
     | EV_UDMODIFIERS (e);

@@ -57,7 +57,7 @@
 (defun touch-gesture--pinch (event)
   "Increase or decrease the text scale according to EVENT."
   (interactive (list last-input-event))
-  (let ((delta (caddr event)))
+  (let ((delta (* 25 (caddr event))))
     (if (not (= delta 0))
         (text-scale-increase delta))))
 
@@ -76,7 +76,8 @@ factor.
   (global-unset-key [touch-scroll])
   (when touch-gesture-mode
     (global-set-key [touch-scroll] 'touch-gesture--scroll)
-    (global-set-key [touch-pinch] 'touch-gesture--pinch)))
+    (global-set-key [magnify-up] 'touch-gesture--pinch)
+    (global-set-key [magnify-down] 'touch-gesture--pinch)))
 
 ;;; Compatibility entry point
 ;; preloaded ;;;###autoload
